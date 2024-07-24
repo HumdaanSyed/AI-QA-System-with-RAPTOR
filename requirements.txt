@@ -1,0 +1,14 @@
+langchain
+umap-learn
+scikit-learn
+langchain_community
+tiktoken
+langchainhub
+langchain-google-genai
+langchain-milvus
+PyPDF
+matplotlib
+getpass4
+sentence-transformers
+langchain-huggingface
+ipykernel
