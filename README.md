@@ -3,7 +3,7 @@
 ## Table of Contents
 1. [Overview of RAPTOR](#overview-of-raptor)
 2. [Tools and Technologies](#tools-and-technologies)
-    - [Installing Milvus on Wndows with WSL 2 enabled](#installing-milvus-on-wndows-with-wsl-2-enabled-link-for-reference)
+    - [Installing Milvus on Windows with WSL 2 enabled](#installing-milvus-on-windows-with-wsl-2-enabled-link-for-reference)
 3. [Running the Code](#running-the-code)
     
 4. [Project Demonstration and Output](#project-demonstration-and-output)
@@ -52,7 +52,7 @@ RAPTOR is designed to tackle the challenge of semantic depth and connection in r
 >* Milvus vector database [Starting a Milvus container in Docker Desktop]()
 >
 
-#### Installing Milvus on Wndows with WSL 2 enabled [(Link for reference)](https://milvus.io/docs/install_standalone-docker.md)
+#### Installing Milvus on Windows with WSL 2 enabled [(Link for reference)](https://milvus.io/docs/install_standalone-docker.md)
 * Install your preferred distribution of Linux. Here I have used Ubuntu which is the default distribution.
 * Open Linux command line and create a directory where you will install the Milvus files
 * Use a cURL command to download the installation script
