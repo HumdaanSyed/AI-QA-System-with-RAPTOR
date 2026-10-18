@@ -1,10 +1,12 @@
+from dataclasses import replace
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from raptor_rag import store
-from raptor_rag.ingest import doc_path
+from raptor_rag.ingest import doc_path, ingest_document
 
-from .conftest import make_pdf
+from .conftest import FakeEmbedder, make_pdf
 
 
 def create_kb(client: TestClient, name: str = "Books") -> str:
@@ -74,7 +76,23 @@ def test_corrupt_pdf_marks_document_failed(client: TestClient, app: FastAPI):
     )
     app.state.worker.wait()
     doc = docs_by_id(client, kb_id)[r.json()["id"]]
-    assert doc["status"] == "failed" and doc["error"]
+    assert doc["status"] == "failed"
+    assert doc["error"] == "Could not process this PDF."  # no server paths leaked
+
+
+def test_document_deleted_mid_ingest_leaves_no_points(client: TestClient, app: FastAPI):
+    deps = app.state.deps
+    kb_id = create_kb(client)
+    doc_id = upload(client, kb_id, ["Decision trees", "Random forests"])
+    app.state.worker.wait()
+
+    class DeletingEmbedder(FakeEmbedder):
+        def embed(self, texts):
+            deps.db.delete_document(doc_id)  # user deletes while chunks are being written
+            return super().embed(texts)
+
+    ingest_document(replace(deps, embedder=DeletingEmbedder()), kb_id, doc_id)
+    assert store.count_document(deps.qdrant, kb_id, doc_id) == 0
 
 
 def test_delete_document_removes_only_its_data(client: TestClient, app: FastAPI):

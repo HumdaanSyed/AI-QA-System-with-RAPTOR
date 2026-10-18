@@ -56,7 +56,6 @@ def ingest_document(deps: Deps, kb_id: str, doc_id: str) -> None:
                     id=str(uuid.uuid4()),
                     vector={"dense": dense, "sparse": sparse},
                     payload={
-                        "kb_id": kb_id,
                         "doc_id": doc_id,
                         "doc_name": doc["filename"],
                         "level": 0,
@@ -77,7 +76,9 @@ def ingest_document(deps: Deps, kb_id: str, doc_id: str) -> None:
         db.set_status(doc_id, "ready", progress=100)
     except Exception as e:
         log.exception("Ingestion failed for document %s", doc_id)
-        db.set_status(doc_id, "failed", error=str(e))
+        # Only our own messages are user-facing; library errors can contain server paths.
+        message = str(e) if isinstance(e, ValueError) else "Could not process this PDF."
+        db.set_status(doc_id, "failed", error=message)
 
 
 class Worker:
@@ -104,5 +105,7 @@ class Worker:
             job = self.queue.get()
             try:
                 self.handle(*job)
+            except Exception:  # keep the thread alive for later jobs
+                log.exception("Job %s failed", job)
             finally:
                 self.queue.task_done()

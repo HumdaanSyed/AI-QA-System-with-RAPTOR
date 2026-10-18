@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Any, Protocol
 
 from qdrant_client import models
 
@@ -22,7 +22,7 @@ class BGEM3Embedder:
         self.model = BGEM3FlagModel(model_name, use_fp16=False)
 
     def embed(self, texts: list[str]) -> list[tuple[list[float], models.SparseVector]]:
-        out = self.model.encode(texts, return_dense=True, return_sparse=True, batch_size=16)
+        out: Any = self.model.encode(texts, return_dense=True, return_sparse=True, batch_size=16)
         result = []
         for dense, weights in zip(out["dense_vecs"], out["lexical_weights"], strict=True):
             sparse = models.SparseVector(
