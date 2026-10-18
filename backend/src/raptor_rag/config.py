@@ -16,5 +16,6 @@ class Settings(BaseSettings):
     summary_model: str = "gpt-6-luna"  # RAPTOR makes many summary calls; a small model is enough
     retrieve_candidates: int = 30  # hybrid search results passed to the reranker
     retrieve_top_n: int = 6  # reranked sources given to the LLM
+    cors_origins: list[str] = ["http://localhost:3000"]  # the Next.js frontend
     max_upload_mb: int = 50
     chunk_chars: int = 1600  # ~400 tokens

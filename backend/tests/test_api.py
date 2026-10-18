@@ -131,3 +131,14 @@ def test_document_routes_check_kb_ownership(client: TestClient, app: FastAPI):
     app.state.worker.wait()
     assert client.delete(f"/kb/{kb_b}/documents/{doc_id}").status_code == 404
     assert client.post(f"/kb/{kb_b}/documents/{doc_id}/reindex").status_code == 404
+
+
+def test_cors_allows_only_the_frontend_origin(client: TestClient):
+    def preflight(origin: str):
+        return client.options(
+            "/kb", headers={"Origin": origin, "Access-Control-Request-Method": "POST"}
+        )
+
+    allowed = preflight("http://localhost:3000")
+    assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "access-control-allow-origin" not in preflight("https://evil.example").headers
