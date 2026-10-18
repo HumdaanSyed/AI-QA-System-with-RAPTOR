@@ -77,7 +77,14 @@ def test_query_validates_input(client: TestClient):
 
 def test_citations_parses_groups_and_ignores_unknown_ids():
     sources = [
-        {"doc_id": str(i), "doc_name": "d.pdf", "page_start": i, "page_end": i, "text": "t"}
+        {
+            "doc_id": str(i),
+            "doc_name": "d.pdf",
+            "level": 0,
+            "page_start": i,
+            "page_end": i,
+            "text": "t",
+        }
         for i in (1, 2, 3)
     ]
     found = citations("A [3]. B [1, 3][1]. C [4]. Not a citation [x].", sources)

@@ -40,6 +40,8 @@ class FakeReranker:
 class FakeLLM:
     """Streams a scripted answer and records the prompts it was given."""
 
+    model = "fake"
+
     def __init__(self, script: list[str] | None = None):
         self.script = script or ["The mean is the average [1]. ", "See also [2, 9]."]
         self.prompts: list[str] = []
@@ -47,6 +49,10 @@ class FakeLLM:
     def stream(self, instructions: str, prompt: str) -> Iterator[str]:
         self.prompts.append(prompt)
         yield from self.script
+
+    def complete(self, instructions: str, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return "Summary: " + " ".join(prompt.split()[:20])
 
 
 def make_pdf(pages: list[str]) -> bytes:
@@ -70,6 +76,7 @@ def app(tmp_path) -> FastAPI:
         qdrant=QdrantClient(":memory:"),
         reranker=FakeReranker(),
         llm=FakeLLM(),
+        summarizer=FakeLLM(),
     )
 
 

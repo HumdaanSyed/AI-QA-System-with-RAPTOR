@@ -9,7 +9,8 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS knowledge_bases (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    raptor_enabled INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
@@ -20,6 +21,10 @@ CREATE TABLE IF NOT EXISTS documents (
     error TEXT,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS summary_cache (
+    key TEXT PRIMARY KEY,
+    summary TEXT NOT NULL
+);
 """
 
 # Statuses a job can be in while it is still running.
@@ -28,6 +33,10 @@ IN_FLIGHT = ("queued", "parsing", "embedding", "building_tree")
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _kb(row: sqlite3.Row) -> dict:
+    return {**dict(row), "raptor_enabled": bool(row["raptor_enabled"])}
 
 
 class DB:
@@ -49,21 +58,29 @@ class DB:
         finally:
             conn.close()
 
-    def create_kb(self, name: str) -> dict:
-        row = {"id": uuid.uuid4().hex, "name": name, "created_at": _now()}
+    def create_kb(self, name: str, raptor_enabled: bool = True) -> dict:
+        row = {
+            "id": uuid.uuid4().hex,
+            "name": name,
+            "created_at": _now(),
+            "raptor_enabled": raptor_enabled,
+        }
         with self._conn() as c:
-            c.execute("INSERT INTO knowledge_bases VALUES (:id, :name, :created_at)", row)
+            c.execute(
+                "INSERT INTO knowledge_bases VALUES (:id, :name, :created_at, :raptor_enabled)",
+                row,
+            )
         return row
 
     def list_kbs(self) -> list[dict]:
         with self._conn() as c:
             rows = c.execute("SELECT * FROM knowledge_bases ORDER BY created_at").fetchall()
-        return [dict(r) for r in rows]
+        return [_kb(r) for r in rows]
 
     def get_kb(self, kb_id: str) -> dict | None:
         with self._conn() as c:
             row = c.execute("SELECT * FROM knowledge_bases WHERE id = ?", (kb_id,)).fetchone()
-        return dict(row) if row else None
+        return _kb(row) if row else None
 
     def rename_kb(self, kb_id: str, name: str) -> None:
         with self._conn() as c:
@@ -126,3 +143,12 @@ class DB:
                 f"WHERE status IN ({marks})",
                 IN_FLIGHT,
             )
+
+    def get_summary(self, key: str) -> str | None:
+        with self._conn() as c:
+            row = c.execute("SELECT summary FROM summary_cache WHERE key = ?", (key,)).fetchone()
+        return row["summary"] if row else None
+
+    def put_summary(self, key: str, summary: str) -> None:
+        with self._conn() as c:
+            c.execute("INSERT OR REPLACE INTO summary_cache VALUES (?, ?)", (key, summary))
