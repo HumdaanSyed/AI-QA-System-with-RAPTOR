@@ -22,7 +22,7 @@ from raptor_rag.llm import LLM
 SEED = 224  # fixed so re-indexing the same document gives the same clusters (and cache hits)
 MAX_LEVELS = 3
 ROOT_SIZE = 8  # this many nodes or fewer are summarized together into a single root
-MAX_CLUSTER_SIZE = 15  # keeps summary inputs focused
+TARGET_CLUSTER_SIZE = 15  # aim for clusters of about this size (not a hard cap)
 SOFT_THRESHOLD = 0.1  # a node joins every cluster it belongs to with at least this probability
 SUMMARY_WORKERS = 8
 
@@ -67,7 +67,7 @@ def cluster(embeddings: np.ndarray) -> list[list[int]]:
     ).fit_transform(embeddings)
     reduced = np.asarray(reduced)
     high = min(50, n // 2)
-    low = min(max(2, -(-n // MAX_CLUSTER_SIZE)), high)
+    low = min(max(2, -(-n // TARGET_CLUSTER_SIZE)), high)
     models_ = [GaussianMixture(k, random_state=SEED).fit(reduced) for k in range(low, high + 1)]
     best = min(models_, key=lambda m: m.bic(reduced))
     probs = best.predict_proba(reduced)
