@@ -13,6 +13,7 @@ dependencies = [
     "qdrant-client>=1.15",
     "pymupdf>=1.26",
     "python-multipart>=0.0.20",
+    "openai>=2",
 ]
 
 [project.optional-dependencies]

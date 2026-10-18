@@ -1,31 +1,57 @@
+import json
+import logging
 import shutil
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, StringConstraints
 from qdrant_client import QdrantClient
 
-from raptor_rag import store
+from raptor_rag import rag, store
 from raptor_rag.config import Settings
 from raptor_rag.db import DB
 from raptor_rag.embed import BGEM3Embedder, Embedder
 from raptor_rag.ingest import Deps, Worker, doc_path, ingest_document
+from raptor_rag.llm import LLM, OpenAILLM
 from raptor_rag.pdf import validate_pdf
+from raptor_rag.rerank import BGEReranker, Reranker
+
+log = logging.getLogger(__name__)
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+Question = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
 
 class KBIn(BaseModel):
     name: Name
 
 
+class QueryIn(BaseModel):
+    question: Question
+
+
+def sse(events: Iterator[tuple[str, dict]]) -> Iterator[str]:
+    """Format events as server-sent events; always end with "done"."""
+    try:
+        for name, data in events:
+            yield f"event: {name}\ndata: {json.dumps(data)}\n\n"
+    except Exception:
+        log.exception("Query failed")
+        yield f"event: error\ndata: {json.dumps({'message': 'Something went wrong.'})}\n\n"
+    yield "event: done\ndata: {}\n\n"
+
+
 def create_app(
     settings: Settings | None = None,
     embedder: Embedder | None = None,
     qdrant: QdrantClient | None = None,
+    reranker: Reranker | None = None,
+    llm: LLM | None = None,
 ) -> FastAPI:
-    """Build the app. Tests pass in-memory Qdrant and a fake embedder.
+    """Build the app. Tests pass in-memory Qdrant and fake models.
 
     Run with: uvicorn raptor_rag.api:create_app --factory
     """
@@ -38,6 +64,8 @@ def create_app(
         db=db,
         qdrant=qdrant or QdrantClient(location=settings.qdrant_location),
         embedder=embedder or BGEM3Embedder(settings.embed_model),
+        reranker=reranker or BGEReranker(settings.rerank_model),
+        llm=llm or OpenAILLM(settings.openai_api_key, settings.answer_model),
     )
     worker = Worker(lambda kb_id, doc_id: ingest_document(deps, kb_id, doc_id))
 
@@ -120,5 +148,12 @@ def create_app(
         db.set_status(doc_id, "queued")
         worker.submit(kb_id, doc_id)
         return get_doc(kb_id, doc_id)
+
+    @app.post("/kb/{kb_id}/query")
+    def query(kb_id: str, body: QueryIn) -> StreamingResponse:
+        get_kb(kb_id)
+        return StreamingResponse(
+            sse(rag.answer(deps, kb_id, body.question)), media_type="text/event-stream"
+        )
 
     return app
