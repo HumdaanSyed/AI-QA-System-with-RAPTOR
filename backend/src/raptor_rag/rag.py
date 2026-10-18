@@ -26,29 +26,52 @@ def pages(source: dict) -> str:
     return str(start) if start == end else f"{start}-{end}"
 
 
-def build_prompt(question: str, sources: list[dict]) -> str:
+def format_sources(sources: list[dict]) -> str:
     blocks = [
         # The filename comes from the uploader, so escape it out of the tag's structure.
         f'<source id="{i}" document="{html.escape(s["doc_name"])}" pages="{pages(s)}">\n'
         f"{s['text']}\n</source>"
         for i, s in enumerate(sources, start=1)
     ]
-    return f"<sources>\n{'\n\n'.join(blocks)}\n</sources>\n\n<question>\n{question}\n</question>"
+    return f"<sources>\n{'\n\n'.join(blocks)}\n</sources>"
 
 
-def retrieve(deps: Deps, kb_id: str, question: str) -> list[dict]:
-    """Hybrid search over ready documents, then rerank and keep the best few."""
+def build_prompt(question: str, sources: list[dict]) -> str:
+    return f"{format_sources(sources)}\n\n<question>\n{question}\n</question>"
+
+
+def retrieve(
+    deps: Deps,
+    kb_id: str,
+    question: str,
+    *,
+    hybrid: bool = True,
+    rerank: bool = True,
+    summaries: bool = True,
+) -> list[dict]:
+    """Search ready documents, rerank, and keep the best few.
+
+    The keyword switches turn parts off so the evaluation can compare configurations.
+    """
     ready = [d["id"] for d in deps.db.list_documents(kb_id) if d["status"] == "ready"]
     if not ready:
         return []
-    dense, sparse = deps.embedder.embed([question])[0]
     settings = deps.settings
-    candidates = store.hybrid_search(
-        deps.qdrant, kb_id, dense, sparse, ready, settings.retrieve_candidates
+    dense, sparse = deps.embedder.embed([question])[0]
+    found = store.search(
+        deps.qdrant,
+        kb_id,
+        dense,
+        sparse if hybrid else None,
+        ready,
+        settings.retrieve_candidates if rerank else settings.retrieve_top_n,
+        passages_only=not summaries,
     )
-    scores = deps.reranker.score(question, [c["text"] for c in candidates])
-    ranked = sorted(zip(scores, candidates, strict=True), key=lambda pair: pair[0], reverse=True)
-    return [c for _, c in ranked[: settings.retrieve_top_n]]
+    if rerank:
+        scores = deps.reranker.score(question, [c["text"] for c in found])
+        ranked = sorted(zip(scores, found, strict=True), key=lambda pair: pair[0], reverse=True)
+        found = [c for _, c in ranked]
+    return found[: settings.retrieve_top_n]
 
 
 def citations(answer: str, sources: list[dict]) -> list[dict]:

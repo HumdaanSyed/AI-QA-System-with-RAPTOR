@@ -40,7 +40,7 @@ line-length = 100
 select = ["E", "F", "I", "B", "UP", "SIM"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "evals"]
 pythonVersion = "3.12"
 
 [tool.pytest.ini_options]
