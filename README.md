@@ -149,22 +149,22 @@ plt.grid(axis="y", alpha=0.75)
 
 plt.show()
 ```
-![Histogram of token counts](./images/histogram.png)
+![Histogram of token counts](./legacy/images/histogram.png)
 
 
 #### 2. Total token count
 
-![Total token count](./images/token_count.png)
+![Total token count](./legacy/images/token_count.png)
 
 
 #### 3. Chunking the data
 
-![Chunking the datat](./images/chunk_data.png)
+![Chunking the datat](./legacy/images/chunk_data.png)
 
 
 #### 4. Clustering and Summarisation with RAPTOR
 
-![Clustering and Summarisation](./images/cluster_sum.png)
+![Clustering and Summarisation](./legacy/images/cluster_sum.png)
 
 
 #### 5. Build Vector stores and instantiate retrievers
