@@ -4,6 +4,11 @@ Ask questions about your PDFs and get streamed answers that cite the exact passa
 they came from. Documents are organized into knowledge bases, indexed in the background, and
 searched with hybrid retrieval, a cross-encoder reranker and optional **RAPTOR** summary trees.
 
+![A cited answer about overfitting, with a RAPTOR summary open in the source panel](docs/screenshot.jpg)
+
+*Demo documents: OpenStax* Principles of Data Science *and* Introduction to Python Programming
+*(CC BY-NC-SA 4.0).*
+
 **Stack:** Python 3.12 · FastAPI · Qdrant · BGE-M3 · bge-reranker-v2-m3 · OpenAI · UMAP + scikit-learn · Next.js 16 · Tailwind
 
 ## Features
