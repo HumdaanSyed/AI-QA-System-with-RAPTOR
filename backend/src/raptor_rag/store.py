@@ -37,28 +37,39 @@ def delete_document(client: QdrantClient, kb_id: str, doc_id: str) -> None:
     )
 
 
-def hybrid_search(
+def search(
     client: QdrantClient,
     kb_id: str,
     dense: list[float],
-    sparse: models.SparseVector,
+    sparse: models.SparseVector | None,
     doc_ids: list[str],
     limit: int,
+    passages_only: bool = False,
 ) -> list[dict]:
-    """Dense + sparse search fused with reciprocal rank fusion, limited to the given docs."""
-    only_docs = models.Filter(
-        must=[models.FieldCondition(key="doc_id", match=models.MatchAny(any=doc_ids))]
-    )
-    result = client.query_points(
-        collection_name(kb_id),
-        prefetch=[
-            models.Prefetch(query=dense, using="dense", filter=only_docs, limit=limit),
-            models.Prefetch(query=sparse, using="sparse", filter=only_docs, limit=limit),
-        ],
-        query=models.FusionQuery(fusion=models.Fusion.RRF),
-        limit=limit,
-        with_payload=True,
-    )
+    """Search the given docs; with a sparse vector, fuse dense + sparse results (RRF).
+
+    passages_only skips RAPTOR summaries (used to evaluate retrieval without them).
+    """
+    must: list[models.Condition] = [
+        models.FieldCondition(key="doc_id", match=models.MatchAny(any=doc_ids))
+    ]
+    if passages_only:
+        must.append(models.FieldCondition(key="level", match=models.MatchValue(value=0)))
+    only = models.Filter(must=must)
+    if sparse is None:
+        result = client.query_points(
+            collection_name(kb_id), query=dense, using="dense", query_filter=only, limit=limit
+        )
+    else:
+        result = client.query_points(
+            collection_name(kb_id),
+            prefetch=[
+                models.Prefetch(query=dense, using="dense", filter=only, limit=limit),
+                models.Prefetch(query=sparse, using="sparse", filter=only, limit=limit),
+            ],
+            query=models.FusionQuery(fusion=models.Fusion.RRF),
+            limit=limit,
+        )
     return [p.payload or {} for p in result.points]
 
 
