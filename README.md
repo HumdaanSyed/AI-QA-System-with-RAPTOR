@@ -132,7 +132,34 @@ Metrics: **recall@5** and **MRR** (did retrieval find a passage from the questio
 pages?), and LLM-judged **context recall**, **faithfulness** (claims supported by the sources),
 **citation accuracy** and **answer relevance**, graded by `gpt-6.1-sol` with structured outputs.
 
-Results: see [`backend/evals/results.md`](backend/evals/results.md).
+### Results
+
+43 questions on two OpenStax textbooks (966 pages), answers and grading by `gpt-6.1-sol`
+([full tables](backend/evals/results.md)):
+
+| Setup | Recall@5 | MRR | Context recall (broad Qs) | Answer relevance (broad Qs) | Faithfulness |
+|---|---|---|---|---|---|
+| Dense only (baseline) | 90.7% | 0.64 | 59.2% | 3.50 / 5 | 97.7% |
+| Hybrid | 86.0% | 0.70 | 58.0% | 3.44 / 5 | 100.0% |
+| Hybrid + rerank | **97.7%** | **0.83** | 59.4% | 3.50 / 5 | 100.0% |
+| Hybrid + rerank + RAPTOR | 83.7% | 0.67 | **81.2%** | **4.11 / 5** | 99.9% |
+
+What this shows:
+
+- **Reranking is the biggest retrieval win.** It finds a passage from the right pages in the top 5
+  for 97.7% of questions (vs 90.7%) and ranks it higher (MRR 0.83 vs 0.64).
+- **RAPTOR pays off on broad questions.** For "overview" questions spanning several sections,
+  the retrieved context covers 81% of the reference answer (vs 59%), and answers score 4.11 vs
+  3.50 for relevance. Summaries take some top-5 slots, so passage-only recall drops; summaries
+  are deliberately never counted as hits in that metric.
+- **Answers stay grounded in every setup** (faithfulness ≥ 97.7%), so the prompt's
+  cite-or-refuse rules hold regardless of retrieval.
+- Hybrid search alone did not help on these textbooks. Sparse vectors matter more for exact
+  terms such as product codes and names, which these books rarely use.
+
+With 43 questions (18 broad), one question moves a score by 2–6 points, so small differences
+are noise. The largest effects (reranking's MRR gain and RAPTOR's gain on broad questions) are
+the ones to trust; a larger question set would tighten all of them.
 
 ```bash
 cd backend
