@@ -68,7 +68,7 @@ Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 24, Docker
 # 1. Vector database
 docker run -d --name raptor-qdrant -p 6333:6333 -v raptor_qdrant:/qdrant/storage qdrant/qdrant:v1.19.1
 
-# 2. Backend (first start downloads the BGE models, ~4 GB)
+# 2. Backend (first start downloads the BGE models, ~6.5 GB)
 cd backend
 cp .env.example .env        # then add your OPENAI_API_KEY
 uv sync --extra ml
@@ -81,6 +81,21 @@ npm run dev                 # http://localhost:3000
 ```
 
 API docs are served at <http://localhost:8000/docs>.
+
+### Deploying
+
+The frontend and backend find each other through two settings. For a frontend at
+`https://app.example.com` and an API at `https://api.example.com`:
+
+```bash
+# frontend (at build time)
+NEXT_PUBLIC_API_URL=https://api.example.com
+# backend .env — the browser origins allowed to call the API (JSON list)
+CORS_ORIGINS='["https://app.example.com"]'
+```
+
+Other backend settings (models, chunk size, retrieval depth, upload limit) are in
+[`backend/src/raptor_rag/config.py`](backend/src/raptor_rag/config.py) and can be set the same way.
 
 ## API
 

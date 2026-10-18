@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { streamQuery, type Citation } from "@/lib/api";
 
@@ -63,6 +63,10 @@ export function Chat({ kbId }: { kbId: string }) {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<Citation | null>(null);
+  const controller = useRef<AbortController | null>(null);
+
+  // Stop a running answer when the panel goes away (e.g. another knowledge base is picked).
+  useEffect(() => () => controller.current?.abort(), []);
 
   function update(index: number, change: Partial<Turn> | ((t: Turn) => Partial<Turn>)) {
     setTurns((all) =>
@@ -78,8 +82,14 @@ export function Chat({ kbId }: { kbId: string }) {
     setTurns((all) => [...all, { question: q, answer: "", citations: [] }]);
     setQuestion("");
     setBusy(true);
+    controller.current = new AbortController();
     try {
-      const citations = await streamQuery(kbId, q, (text) => update(index, (t) => ({ answer: t.answer + text })));
+      const citations = await streamQuery(
+        kbId,
+        q,
+        (text) => update(index, (t) => ({ answer: t.answer + text })),
+        controller.current.signal,
+      );
       update(index, { citations });
     } catch (e) {
       update(index, { error: (e as Error).message });

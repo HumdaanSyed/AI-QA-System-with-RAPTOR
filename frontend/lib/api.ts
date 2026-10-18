@@ -65,8 +65,9 @@ export async function streamQuery(
   kbId: string,
   question: string,
   onToken: (text: string) => void,
+  signal?: AbortSignal,
 ): Promise<Citation[]> {
-  const response = await fetch(`${API_URL}/kb/${kbId}/query`, json("POST", { question }));
+  const response = await fetch(`${API_URL}/kb/${kbId}/query`, { ...json("POST", { question }), signal });
   if (!response.ok || !response.body) throw new Error(`Request failed (${response.status})`);
 
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
