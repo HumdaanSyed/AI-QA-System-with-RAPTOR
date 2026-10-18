@@ -29,6 +29,10 @@ class KBIn(BaseModel):
     name: Name
 
 
+class KBCreate(KBIn):
+    raptor_enabled: bool = True
+
+
 class QueryIn(BaseModel):
     question: Question
 
@@ -50,6 +54,7 @@ def create_app(
     qdrant: QdrantClient | None = None,
     reranker: Reranker | None = None,
     llm: LLM | None = None,
+    summarizer: LLM | None = None,
 ) -> FastAPI:
     """Build the app. Tests pass in-memory Qdrant and fake models.
 
@@ -66,6 +71,7 @@ def create_app(
         embedder=embedder or BGEM3Embedder(settings.embed_model),
         reranker=reranker or BGEReranker(settings.rerank_model),
         llm=llm or OpenAILLM(settings.openai_api_key, settings.answer_model),
+        summarizer=summarizer or OpenAILLM(settings.openai_api_key, settings.summary_model),
     )
     worker = Worker(lambda kb_id, doc_id: ingest_document(deps, kb_id, doc_id))
 
@@ -86,8 +92,8 @@ def create_app(
         return doc
 
     @app.post("/kb", status_code=201)
-    def create_kb(body: KBIn) -> dict:
-        kb = db.create_kb(body.name)
+    def create_kb(body: KBCreate) -> dict:
+        kb = db.create_kb(body.name, body.raptor_enabled)
         try:
             store.create_collection(deps.qdrant, kb["id"], deps.embedder.dim)
         except Exception:

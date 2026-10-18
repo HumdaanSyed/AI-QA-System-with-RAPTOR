@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     embed_model: str = "BAAI/bge-m3"
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     answer_model: str = "gpt-6.1-sol"
+    summary_model: str = "gpt-6-luna"  # RAPTOR makes many summary calls; a small model is enough
     retrieve_candidates: int = 30  # hybrid search results passed to the reranker
     retrieve_top_n: int = 6  # reranked sources given to the LLM
     max_upload_mb: int = 50

@@ -15,6 +15,7 @@ from raptor_rag.db import DB
 from raptor_rag.embed import Embedder
 from raptor_rag.llm import LLM
 from raptor_rag.pdf import extract_blocks
+from raptor_rag.raptor import Node, build_tree, summarizer
 from raptor_rag.rerank import Reranker
 
 log = logging.getLogger(__name__)
@@ -29,7 +30,24 @@ class Deps:
     qdrant: QdrantClient
     embedder: Embedder
     reranker: Reranker
-    llm: LLM
+    llm: LLM  # answers
+    summarizer: LLM  # RAPTOR summaries
+
+
+def to_point(node: Node, doc: dict) -> models.PointStruct:
+    payload = {
+        "doc_id": doc["id"],
+        "doc_name": doc["filename"],
+        "level": node.level,
+        "text": node.text,
+        "page_start": node.page_start,
+        "page_end": node.page_end,
+    }
+    if node.child_ids:
+        payload["child_ids"] = node.child_ids
+    return models.PointStruct(
+        id=node.id, vector={"dense": node.dense, "sparse": node.sparse}, payload=payload
+    )
 
 
 def doc_path(settings: Settings, kb_id: str, doc_id: str) -> Path:
@@ -37,7 +55,7 @@ def doc_path(settings: Settings, kb_id: str, doc_id: str) -> Path:
 
 
 def ingest_document(deps: Deps, kb_id: str, doc_id: str) -> None:
-    """Parse, chunk, embed and index one document, recording progress in the DB."""
+    """Parse, chunk, embed and index one document (plus its RAPTOR tree), recording progress."""
     db = deps.db
     doc = db.get_document(doc_id)
     if doc is None:  # deleted while queued
@@ -52,27 +70,24 @@ def ingest_document(deps: Deps, kb_id: str, doc_id: str) -> None:
 
         store.delete_document(deps.qdrant, kb_id, doc_id)  # makes re-indexing idempotent
         db.set_status(doc_id, "embedding")
+        leaves: list[Node] = []
         for start in range(0, len(chunks), EMBED_BATCH):
             batch = chunks[start : start + EMBED_BATCH]
             vectors = deps.embedder.embed([c.text for c in batch])
-            points = [
-                models.PointStruct(
-                    id=str(uuid.uuid4()),
-                    vector={"dense": dense, "sparse": sparse},
-                    payload={
-                        "doc_id": doc_id,
-                        "doc_name": doc["filename"],
-                        "level": 0,
-                        "chunk_index": start + i,
-                        "text": chunk.text,
-                        "page_start": chunk.page_start,
-                        "page_end": chunk.page_end,
-                    },
-                )
-                for i, (chunk, (dense, sparse)) in enumerate(zip(batch, vectors, strict=True))
+            nodes = [
+                Node(str(uuid.uuid4()), c.text, dense, sparse, c.page_start, c.page_end)
+                for c, (dense, sparse) in zip(batch, vectors, strict=True)
             ]
-            store.upsert(deps.qdrant, kb_id, points)
-            db.set_status(doc_id, "embedding", progress=(start + len(batch)) * 100 // len(chunks))
+            store.upsert(deps.qdrant, kb_id, [to_point(n, doc) for n in nodes])
+            leaves += nodes
+            db.set_status(doc_id, "embedding", progress=len(leaves) * 100 // len(chunks))
+
+        kb = db.get_kb(kb_id)
+        if kb and kb["raptor_enabled"]:
+            db.set_status(doc_id, "building_tree")
+            summarize = summarizer(deps.summarizer, db, doc["filename"])
+            tree = build_tree(leaves, summarize, deps.embedder.embed)
+            store.upsert(deps.qdrant, kb_id, [to_point(n, doc) for n in tree])
 
         if db.get_document(doc_id) is None:  # deleted mid-ingest: remove what we just wrote
             store.delete_document(deps.qdrant, kb_id, doc_id)

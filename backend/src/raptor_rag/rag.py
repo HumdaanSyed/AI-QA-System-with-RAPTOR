@@ -59,6 +59,7 @@ def citations(answer: str, sources: list[dict]) -> list[dict]:
             "id": n,
             "doc_id": sources[n - 1]["doc_id"],
             "doc_name": sources[n - 1]["doc_name"],
+            "level": sources[n - 1]["level"],  # 0 = passage, 1+ = RAPTOR summary
             "page_start": sources[n - 1]["page_start"],
             "page_end": sources[n - 1]["page_end"],
             "text": sources[n - 1]["text"],
