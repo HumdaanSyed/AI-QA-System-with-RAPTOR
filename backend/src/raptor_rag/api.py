@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Response, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, StringConstraints
 from qdrant_client import QdrantClient
@@ -76,6 +77,12 @@ def create_app(
     worker = Worker(lambda kb_id, doc_id: ingest_document(deps, kb_id, doc_id))
 
     app = FastAPI(title="RAPTOR RAG")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Content-Type"],
+    )
     app.state.deps = deps
     app.state.worker = worker
 
