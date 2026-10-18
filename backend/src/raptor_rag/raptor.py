@@ -68,8 +68,15 @@ def cluster(embeddings: np.ndarray) -> list[list[int]]:
     reduced = np.asarray(reduced)
     high = min(50, n // 2)
     low = min(max(2, -(-n // TARGET_CLUSTER_SIZE)), high)
-    models_ = [GaussianMixture(k, random_state=SEED).fit(reduced) for k in range(low, high + 1)]
-    best = min(models_, key=lambda m: m.bic(reduced))
+    fitted = []
+    for k in range(low, high + 1):
+        try:
+            fitted.append(GaussianMixture(k, random_state=SEED).fit(reduced))
+        except ValueError:  # a component collapsed onto too few points; try other k
+            continue
+    if not fitted:
+        return [list(range(n))]
+    best = min(fitted, key=lambda m: m.bic(reduced))
     probs = best.predict_proba(reduced)
     top = probs.argmax(axis=1)
     groups = [

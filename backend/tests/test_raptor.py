@@ -2,6 +2,7 @@ import numpy as np
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from qdrant_client import models
+from sklearn.mixture import GaussianMixture
 
 from raptor_rag import store
 from raptor_rag.raptor import Node, build_tree, cluster
@@ -90,3 +91,23 @@ def test_raptor_can_be_disabled_per_knowledge_base(client: TestClient, app: Fast
     app.state.worker.wait()
     assert summary_points(app, kb_id) == []
     assert app.state.deps.summarizer.prompts == []
+
+
+def test_cluster_skips_mixture_fits_that_fail(monkeypatch):
+    # Collapsed components raise ValueError in scikit-learn (seen on Linux CI).
+    real_fit = GaussianMixture.fit
+
+    def flaky_fit(self, X, y=None):
+        if self.n_components % 2:
+            raise ValueError("ill-defined empirical covariance")
+        return real_fit(self, X)
+
+    monkeypatch.setattr(GaussianMixture, "fit", flaky_fit)
+    embeddings = blobs()
+    groups = cluster(embeddings)
+    assert set().union(*groups) == set(range(len(embeddings)))
+
+    monkeypatch.setattr(
+        GaussianMixture, "fit", lambda self, X, y=None: (_ for _ in ()).throw(ValueError())
+    )
+    assert cluster(embeddings) == [list(range(len(embeddings)))]  # every fit failed: one group
