@@ -13,7 +13,7 @@ class BGEReranker:
     def __init__(self, model_name: str):
         from FlagEmbedding import FlagReranker  # pyright: ignore[reportMissingImports]
 
-        self.model = FlagReranker(model_name, use_fp16=False)
+        self.model = FlagReranker(model_name, use_fp16=True)
 
     def score(self, query: str, passages: list[str]) -> list[float]:
         if not passages:

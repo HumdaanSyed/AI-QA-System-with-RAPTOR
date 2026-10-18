@@ -19,7 +19,7 @@ class BGEM3Embedder:
     def __init__(self, model_name: str):
         from FlagEmbedding import BGEM3FlagModel  # pyright: ignore[reportMissingImports]
 
-        self.model = BGEM3FlagModel(model_name, use_fp16=False)
+        self.model = BGEM3FlagModel(model_name, use_fp16=True)
 
     def embed(self, texts: list[str]) -> list[tuple[list[float], models.SparseVector]]:
         out: Any = self.model.encode(texts, return_dense=True, return_sparse=True, batch_size=16)

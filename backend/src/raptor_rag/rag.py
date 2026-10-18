@@ -1,3 +1,4 @@
+import html
 import re
 from collections.abc import Iterator
 
@@ -27,7 +28,9 @@ def pages(source: dict) -> str:
 
 def build_prompt(question: str, sources: list[dict]) -> str:
     blocks = [
-        f'<source id="{i}" document="{s["doc_name"]}" pages="{pages(s)}">\n{s["text"]}\n</source>'
+        # The filename comes from the uploader, so escape it out of the tag's structure.
+        f'<source id="{i}" document="{html.escape(s["doc_name"])}" pages="{pages(s)}">\n'
+        f"{s['text']}\n</source>"
         for i, s in enumerate(sources, start=1)
     ]
     return f"<sources>\n{'\n\n'.join(blocks)}\n</sources>\n\n<question>\n{question}\n</question>"
