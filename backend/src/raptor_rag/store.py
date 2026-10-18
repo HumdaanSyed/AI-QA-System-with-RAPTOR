@@ -37,5 +37,30 @@ def delete_document(client: QdrantClient, kb_id: str, doc_id: str) -> None:
     )
 
 
+def hybrid_search(
+    client: QdrantClient,
+    kb_id: str,
+    dense: list[float],
+    sparse: models.SparseVector,
+    doc_ids: list[str],
+    limit: int,
+) -> list[dict]:
+    """Dense + sparse search fused with reciprocal rank fusion, limited to the given docs."""
+    only_docs = models.Filter(
+        must=[models.FieldCondition(key="doc_id", match=models.MatchAny(any=doc_ids))]
+    )
+    result = client.query_points(
+        collection_name(kb_id),
+        prefetch=[
+            models.Prefetch(query=dense, using="dense", filter=only_docs, limit=limit),
+            models.Prefetch(query=sparse, using="sparse", filter=only_docs, limit=limit),
+        ],
+        query=models.FusionQuery(fusion=models.Fusion.RRF),
+        limit=limit,
+        with_payload=True,
+    )
+    return [p.payload or {} for p in result.points]
+
+
 def count_document(client: QdrantClient, kb_id: str, doc_id: str) -> int:
     return client.count(collection_name(kb_id), count_filter=_doc_filter(doc_id)).count

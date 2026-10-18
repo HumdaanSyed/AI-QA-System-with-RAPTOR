@@ -29,6 +29,26 @@ class FakeEmbedder:
         return out
 
 
+class FakeReranker:
+    """Scores passages by how many question words they contain."""
+
+    def score(self, query: str, passages: list[str]) -> list[float]:
+        words = set(query.lower().split())
+        return [float(len(words & set(p.lower().split()))) for p in passages]
+
+
+class FakeLLM:
+    """Streams a scripted answer and records the prompts it was given."""
+
+    def __init__(self, script: list[str] | None = None):
+        self.script = script or ["The mean is the average [1]. ", "See also [2, 9]."]
+        self.prompts: list[str] = []
+
+    def stream(self, instructions: str, prompt: str) -> Iterator[str]:
+        self.prompts.append(prompt)
+        yield from self.script
+
+
 def make_pdf(pages: list[str]) -> bytes:
     doc = pymupdf.open()
     for text in pages:
@@ -44,7 +64,13 @@ def app(tmp_path) -> FastAPI:
         qdrant_location=":memory:",
         max_upload_mb=1,
     )
-    return create_app(settings, embedder=FakeEmbedder(), qdrant=QdrantClient(":memory:"))
+    return create_app(
+        settings,
+        embedder=FakeEmbedder(),
+        qdrant=QdrantClient(":memory:"),
+        reranker=FakeReranker(),
+        llm=FakeLLM(),
+    )
 
 
 @pytest.fixture

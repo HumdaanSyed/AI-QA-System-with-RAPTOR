@@ -13,7 +13,9 @@ from raptor_rag.chunking import chunk_blocks
 from raptor_rag.config import Settings
 from raptor_rag.db import DB
 from raptor_rag.embed import Embedder
+from raptor_rag.llm import LLM
 from raptor_rag.pdf import extract_blocks
+from raptor_rag.rerank import Reranker
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +28,8 @@ class Deps:
     db: DB
     qdrant: QdrantClient
     embedder: Embedder
+    reranker: Reranker
+    llm: LLM
 
 
 def doc_path(settings: Settings, kb_id: str, doc_id: str) -> Path:
