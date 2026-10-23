@@ -1,6 +1,12 @@
+import threading
 from typing import Any, Protocol
 
 from qdrant_client import models
+
+# PyTorch on Apple GPUs (MPS) crashes the process when two threads run models at once, and
+# requests, the ingestion worker and both models share one GPU. Run one model call at a time.
+# shortcut: serializes inference; use a model server with request batching for heavy traffic.
+MODEL_LOCK = threading.Lock()
 
 
 class Embedder(Protocol):
@@ -22,7 +28,10 @@ class BGEM3Embedder:
         self.model = BGEM3FlagModel(model_name, use_fp16=True)
 
     def embed(self, texts: list[str]) -> list[tuple[list[float], models.SparseVector]]:
-        out: Any = self.model.encode(texts, return_dense=True, return_sparse=True, batch_size=16)
+        with MODEL_LOCK:
+            out: Any = self.model.encode(
+                texts, return_dense=True, return_sparse=True, batch_size=16
+            )
         result = []
         for dense, weights in zip(out["dense_vecs"], out["lexical_weights"], strict=True):
             sparse = models.SparseVector(
