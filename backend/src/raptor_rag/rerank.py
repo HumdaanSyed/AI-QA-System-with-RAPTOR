@@ -1,5 +1,7 @@
 from typing import Any, Protocol
 
+from raptor_rag.embed import MODEL_LOCK
+
 
 class Reranker(Protocol):
     def score(self, query: str, passages: list[str]) -> list[float]:
@@ -18,5 +20,6 @@ class BGEReranker:
     def score(self, query: str, passages: list[str]) -> list[float]:
         if not passages:
             return []
-        scores: Any = self.model.compute_score([(query, p) for p in passages], normalize=True)
+        with MODEL_LOCK:
+            scores: Any = self.model.compute_score([(query, p) for p in passages], normalize=True)
         return [float(s) for s in (scores if isinstance(scores, list) else [scores])]
