@@ -4,7 +4,7 @@ Ask questions about your PDFs and get streamed answers that cite the exact passa
 they came from. Documents are organized into knowledge bases, indexed in the background, and
 searched with hybrid retrieval, a cross-encoder reranker and optional **RAPTOR** summary trees.
 
-![A cited answer about an expense policy, with the knowledge base's documents in the sidebar and the cited passage open](docs/screenshot.jpg)
+![Three cited answers about company policies, with the knowledge base's documents in the sidebar](docs/screenshot.png)
 
 *Demo documents: policies and handbooks of Quorvia, a fictional SaaS company generated for this demo.*
 
