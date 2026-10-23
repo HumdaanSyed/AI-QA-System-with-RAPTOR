@@ -32,6 +32,8 @@ build-backend = "uv_build"
 [tool.uv]
 # Supply-chain guard: ignore releases newer than this date (bump deliberately).
 exclude-newer = "2026-10-04"
+# Security fixes released after the guard date (pip-audit, 2026-10-23).
+exclude-newer-package = { aiohttp = "2026-10-21", certifi = "2026-10-21", opentelemetry-api = "2026-10-21" }
 
 [tool.ruff]
 line-length = 100
