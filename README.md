@@ -4,16 +4,16 @@ Ask questions about your PDFs and get streamed answers that cite the exact passa
 they came from. Documents are organized into knowledge bases, indexed in the background, and
 searched with hybrid retrieval, a cross-encoder reranker and optional **RAPTOR** summary trees.
 
-![A cited answer about overfitting, with a RAPTOR summary open in the source panel](docs/screenshot.jpg)
+![A cited answer about an expense policy, with the knowledge base's documents in the sidebar and the cited passage open](docs/screenshot.jpg)
 
-*Demo documents: OpenStax* Principles of Data Science *and* Introduction to Python Programming
-*(CC BY-NC-SA 4.0).*
+*Demo documents: policies and handbooks of Quorvia, a fictional SaaS company generated for this demo.*
 
 **Stack:** Python 3.12 · FastAPI · Qdrant · BGE-M3 · bge-reranker-v2-m3 · OpenAI · UMAP + scikit-learn · Next.js 16 · Tailwind
 
 ## Features
 
-- **Knowledge bases** — create, rename and delete; each has its own Qdrant collection.
+- **Knowledge bases** — create, rename and delete; each has its own Qdrant collection. They live
+  in a collapsible sidebar, with the selected knowledge base's documents listed underneath.
 - **PDF upload with live status** — parsing, embedding and tree building run as a background
   job (`queued → parsing → embedding → building_tree → ready | failed`) with progress.
 - **Hybrid retrieval** — BGE-M3 dense and sparse (lexical) vectors fused with reciprocal rank
@@ -23,6 +23,9 @@ searched with hybrid retrieval, a cross-encoder reranker and optional **RAPTOR**
 - **Grounded, cited answers** — every factual sentence cites a numbered source; if the documents
   don't contain the answer, the model says so instead of guessing. Click a citation to see the
   passage, document and pages.
+- **Saved chat history** — every answer is stored per knowledge base with its citations, so a
+  conversation survives reloads and restarts; it can be cleared, and it is deleted with its
+  knowledge base.
 - **Clean deletes and re-indexing** — removing a document removes all of its chunks and summary
   nodes; re-indexing never duplicates them. Both are covered by tests.
 - **Measured, not claimed** — an evaluation harness compares retrieval setups with retrieval
@@ -44,7 +47,7 @@ flowchart LR
     R --> RR[Cross-encoder rerank]
     RR --> LLM[OpenAI<br/>streamed answer]
     LLM -- tokens, then citations --> UI
-    API --- DB[(SQLite<br/>KBs, documents, status,<br/>summary cache)]
+    API --- DB[(SQLite<br/>KBs, documents, status,<br/>chat history, summary cache)]
 ```
 
 ### How a question is answered
@@ -115,6 +118,8 @@ Other backend settings (models, chunk size, retrieval depth, upload limit) are i
 | `DELETE` | `/kb/{id}/documents/{doc_id}` | Delete a document, its chunks and its tree |
 | `POST` | `/kb/{id}/documents/{doc_id}/reindex` | Re-index a document |
 | `POST` | `/kb/{id}/query` | Ask a question → SSE: `token`…, `citations`, `done` |
+| `GET` | `/kb/{id}/history` | Saved questions, answers and citations |
+| `DELETE` | `/kb/{id}/history` | Clear the chat history |
 
 ## Evaluation
 
@@ -180,6 +185,10 @@ uv run python -m evals.run score --batch
 - **In-process background worker + SQLite.** Simple to run and enough for a single server; jobs
   interrupted by a restart are marked failed and can be re-indexed. A multi-instance deployment
   would swap in a persistent queue.
+- **One model call at a time.** PyTorch on Apple GPUs crashes when two threads run models at
+  once, so embedding and reranking share a lock. Concurrent questions wait their turn (about
+  1.5 s of model time each) instead of crashing the server; heavy traffic would need a dedicated
+  model server.
 - **Cheap model for summaries, strong model for answers.** RAPTOR makes many summary calls, so
   they use `gpt-6-luna` and are cached by content hash; answers and grading use `gpt-6.1-sol`.
 
