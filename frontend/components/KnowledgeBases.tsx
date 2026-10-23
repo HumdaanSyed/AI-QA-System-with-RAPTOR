@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { api, type KnowledgeBase } from "@/lib/api";
 
 type Props = {
@@ -8,9 +8,10 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onCreated: (kb: KnowledgeBase) => void;
+  selectedContent?: ReactNode; // shown under the selected knowledge base (its documents)
 };
 
-export function KnowledgeBases({ items, selectedId, onSelect, onCreated }: Props) {
+export function KnowledgeBases({ items, selectedId, onSelect, onCreated, selectedContent }: Props) {
   const [name, setName] = useState("");
   const [raptor, setRaptor] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function KnowledgeBases({ items, selectedId, onSelect, onCreated }: Props
             >
               {kb.name}
             </button>
+            {kb.id === selectedId && selectedContent}
           </li>
         ))}
         {items.length === 0 && <li className="px-3 text-sm text-zinc-500">None yet.</li>}

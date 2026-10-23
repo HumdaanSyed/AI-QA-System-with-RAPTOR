@@ -10,6 +10,7 @@ export default function Home() {
   const [kbs, setKbs] = useState<KnowledgeBase[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const kb = kbs.find((k) => k.id === selectedId);
 
   useEffect(() => {
@@ -47,29 +48,52 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row">
-      <aside className="border-b border-zinc-200 bg-zinc-100 p-4 md:w-72 md:shrink-0 md:border-b-0 md:border-r dark:border-zinc-800 dark:bg-zinc-950">
-        <h1 className="mb-6 text-xl font-bold">RAPTOR RAG</h1>
-        <KnowledgeBases
-          items={kbs}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onCreated={(created) => {
-            setKbs((all) => [...all, created]);
-            setSelectedId(created.id);
-          }}
-        />
-      </aside>
+    <div className="flex h-dvh">
+      {sidebarOpen && (
+        <aside
+          id="sidebar"
+          className="fixed inset-y-0 left-0 z-20 w-72 shrink-0 overflow-y-auto border-r border-zinc-200 bg-zinc-100 p-4 shadow-lg md:static md:shadow-none dark:border-zinc-800 dark:bg-zinc-950"
+        >
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-xl font-bold">RAPTOR RAG</h1>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Hide sidebar"
+              aria-controls="sidebar"
+              aria-expanded
+              className="rounded p-1 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+            >
+              «
+            </button>
+          </div>
+          <KnowledgeBases
+            items={kbs}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onCreated={(created) => {
+              setKbs((all) => [...all, created]);
+              setSelectedId(created.id);
+            }}
+            selectedContent={kb && <Documents key={`docs-${kb.id}`} kbId={kb.id} />}
+          />
+        </aside>
+      )}
 
-      <main className="flex-1 p-4 md:p-8">
-        {error && (
-          <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
-            {error}
-          </p>
-        )}
-        {kb ? (
-          <div className="mx-auto flex max-w-6xl flex-col gap-6">
-            <header className="flex flex-wrap items-center gap-3">
+      <main className="flex min-w-0 flex-1 flex-col overflow-y-auto p-4 md:p-8">
+        <header className="mx-auto mb-6 flex w-full max-w-3xl flex-wrap items-center gap-3">
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Show sidebar"
+              aria-controls="sidebar"
+              aria-expanded={false}
+              className="rounded border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              ☰
+            </button>
+          )}
+          {kb && (
+            <>
               <h2 className="text-2xl font-semibold">{kb.name}</h2>
               <span className="rounded bg-zinc-200 px-2 py-0.5 text-xs dark:bg-zinc-800">
                 RAPTOR {kb.raptor_enabled ? "on" : "off"}
@@ -82,15 +106,21 @@ export default function Home() {
                   Delete
                 </button>
               </div>
-            </header>
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-              <Documents key={`docs-${kb.id}`} kbId={kb.id} />
-              <Chat key={`chat-${kb.id}`} kbId={kb.id} />
-            </div>
-          </div>
-        ) : (
-          !error && <p className="text-zinc-500">Create a knowledge base to get started.</p>
-        )}
+            </>
+          )}
+        </header>
+        <div className="mx-auto w-full max-w-3xl">
+          {error && (
+            <p role="alert" className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950 dark:text-red-200">
+              {error}
+            </p>
+          )}
+          {kb ? (
+            <Chat key={`chat-${kb.id}`} kbId={kb.id} />
+          ) : (
+            !error && <p className="text-zinc-500">Create a knowledge base to get started.</p>
+          )}
+        </div>
       </main>
     </div>
   );

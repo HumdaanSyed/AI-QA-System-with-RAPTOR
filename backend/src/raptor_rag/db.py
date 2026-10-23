@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import uuid
 from collections.abc import Iterator
@@ -19,6 +20,14 @@ CREATE TABLE IF NOT EXISTS documents (
     status TEXT NOT NULL,
     progress INTEGER NOT NULL DEFAULT 0,
     error TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chat_turns (
+    id TEXT PRIMARY KEY,
+    kb_id TEXT NOT NULL REFERENCES knowledge_bases(id) ON DELETE CASCADE,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    citations TEXT NOT NULL,  -- JSON list, as sent to the client
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS summary_cache (
@@ -152,3 +161,21 @@ class DB:
     def put_summary(self, key: str, summary: str) -> None:
         with self._conn() as c:
             c.execute("INSERT OR REPLACE INTO summary_cache VALUES (?, ?)", (key, summary))
+
+    def add_turn(self, kb_id: str, question: str, answer: str, citations: list[dict]) -> None:
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO chat_turns VALUES (?, ?, ?, ?, ?, ?)",
+                (uuid.uuid4().hex, kb_id, question, answer, json.dumps(citations), _now()),
+            )
+
+    def list_turns(self, kb_id: str) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute(
+                "SELECT * FROM chat_turns WHERE kb_id = ? ORDER BY created_at", (kb_id,)
+            ).fetchall()
+        return [{**dict(r), "citations": json.loads(r["citations"])} for r in rows]
+
+    def clear_turns(self, kb_id: str) -> None:
+        with self._conn() as c:
+            c.execute("DELETE FROM chat_turns WHERE kb_id = ?", (kb_id,))

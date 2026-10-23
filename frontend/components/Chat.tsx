@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { streamQuery, type Citation } from "@/lib/api";
+import { api, streamQuery, type Citation } from "@/lib/api";
 
 type Turn = { question: string; answer: string; citations: Citation[]; error?: string };
 
@@ -63,10 +63,33 @@ export function Chat({ kbId }: { kbId: string }) {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState<Citation | null>(null);
+  const [loaded, setLoaded] = useState(false); // asking waits for history, so turn indexes stay right
   const controller = useRef<AbortController | null>(null);
 
   // Stop a running answer when the panel goes away (e.g. another knowledge base is picked).
   useEffect(() => () => controller.current?.abort(), []);
+
+  useEffect(() => {
+    let active = true;
+    api.history(kbId).then(
+      (saved) => active && (setTurns(saved), setLoaded(true)),
+      () => active && setLoaded(true), // start empty rather than block asking
+    );
+    return () => {
+      active = false;
+    };
+  }, [kbId]);
+
+  async function clear() {
+    if (!confirm("Clear this knowledge base's chat history?")) return;
+    try {
+      await api.clearHistory(kbId);
+      setTurns([]);
+      setSource(null);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  }
 
   function update(index: number, change: Partial<Turn> | ((t: Turn) => Partial<Turn>)) {
     setTurns((all) =>
@@ -100,9 +123,16 @@ export function Chat({ kbId }: { kbId: string }) {
 
   return (
     <section aria-labelledby="chat-heading" className="flex min-h-0 flex-col gap-3">
-      <h2 id="chat-heading" className="text-lg font-semibold">
-        Ask
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 id="chat-heading" className="text-lg font-semibold">
+          Ask
+        </h2>
+        {turns.length > 0 && (
+          <button onClick={clear} disabled={busy} className="text-sm text-zinc-500 hover:underline disabled:opacity-40">
+            Clear chat
+          </button>
+        )}
+      </div>
       <div aria-live="polite" className="flex flex-col gap-6">
         {turns.length === 0 && (
           <p className="text-sm text-zinc-500">
@@ -162,7 +192,7 @@ export function Chat({ kbId }: { kbId: string }) {
         />
         <button
           type="submit"
-          disabled={busy || !question.trim()}
+          disabled={busy || !loaded || !question.trim()}
           className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {busy ? "Answering…" : "Ask"}
