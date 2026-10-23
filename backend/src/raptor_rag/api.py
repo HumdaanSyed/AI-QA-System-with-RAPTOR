@@ -165,8 +165,27 @@ def create_app(
     @app.post("/kb/{kb_id}/query")
     def query(kb_id: str, body: QueryIn) -> StreamingResponse:
         get_kb(kb_id)
-        return StreamingResponse(
-            sse(rag.answer(deps, kb_id, body.question)), media_type="text/event-stream"
-        )
+
+        def answer_and_save() -> Iterator[tuple[str, dict]]:
+            parts = []
+            for name, data in rag.answer(deps, kb_id, body.question):
+                if name == "token":
+                    parts.append(data["text"])
+                elif name == "citations":  # the answer is complete: keep it in the history
+                    db.add_turn(kb_id, body.question, "".join(parts), data["citations"])
+                yield name, data
+
+        return StreamingResponse(sse(answer_and_save()), media_type="text/event-stream")
+
+    @app.get("/kb/{kb_id}/history")
+    def history(kb_id: str) -> list[dict]:
+        get_kb(kb_id)
+        return db.list_turns(kb_id)
+
+    @app.delete("/kb/{kb_id}/history", status_code=204)
+    def clear_history(kb_id: str) -> Response:
+        get_kb(kb_id)
+        db.clear_turns(kb_id)
+        return Response(status_code=204)
 
     return app

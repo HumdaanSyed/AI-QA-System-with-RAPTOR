@@ -56,6 +56,9 @@ export const api = {
   },
   deleteDoc: (kbId: string, docId: string) =>
     request<void>(`/kb/${kbId}/documents/${docId}`, { method: "DELETE" }),
+  history: (kbId: string) =>
+    request<{ question: string; answer: string; citations: Citation[] }[]>(`/kb/${kbId}/history`),
+  clearHistory: (kbId: string) => request<void>(`/kb/${kbId}/history`, { method: "DELETE" }),
   reindexDoc: (kbId: string, docId: string) =>
     request<Doc>(`/kb/${kbId}/documents/${docId}/reindex`, { method: "POST" }),
 };
